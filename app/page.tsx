@@ -1,78 +1,60 @@
 "use client";
 
-import { Authenticated, Unauthenticated } from "convex/react";
-import { SignUpButton } from "@clerk/nextjs";
-import { SignInButton } from "@clerk/nextjs";
-import { UserButton } from "@clerk/nextjs";
+import { useConvexAuth } from "convex/react";
+import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import { ChatInterface } from "@/components/ChatInterface";
-import { Sparkles, Bot } from "lucide-react";
+import { Bot, Loader2 } from "lucide-react";
 
 export default function Home() {
-  return (
-    <>
-      <header className="sticky top-0 z-10 glass-effect border-b border-white/20 p-4 flex flex-row justify-between items-center">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-            <Bot className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold gradient-text">CC Chat</h1>
-            <p className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
-              <Sparkles className="w-3 h-3" />
-              Powered by AI
-            </p>
-          </div>
+  const { isAuthenticated, isLoading } = useConvexAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <p className="text-gray-500">Loading...</p>
         </div>
-        <UserButton
-          appearance={{
-            elements: {
-              avatarBox: "w-10 h-10 shadow-lg",
-            },
-          }}
-        />
-      </header>
-      <main className="h-[calc(100vh-80px)]">
-        <Authenticated>
-          <ChatInterface />
-        </Authenticated>
-        <Unauthenticated>
-          <SignInForm />
-        </Unauthenticated>
-      </main>
-    </>
-  );
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <SignInForm />;
+  }
+
+  return <ChatInterface />;
 }
 
 function SignInForm() {
   return (
-    <div className="flex flex-col gap-8 w-96 mx-auto items-center justify-center h-full">
-      <div className="text-center space-y-6">
-        <div className="relative">
-          <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full flex items-center justify-center mx-auto shadow-2xl">
-            <Bot className="w-10 h-10 text-white" />
+    <div className="flex items-center justify-center min-h-screen p-4 bg-gray-50">
+      <div className="w-full max-w-md mx-auto">
+        <div className="text-center space-y-8 bg-white p-8 rounded-xl shadow-lg">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center mx-auto">
+            <Bot className="w-8 h-8 text-white" />
           </div>
-          <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
-            <Sparkles className="w-3 h-3 text-white" />
+
+          <div className="space-y-4">
+            <h1 className="text-3xl font-bold text-gray-900">CC Chat</h1>
+            <p className="text-gray-600">
+              Experience intelligent conversations with AI
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <SignInButton mode="modal">
+              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition font-semibold">
+                Sign in to start chatting
+              </button>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <button className="w-full border border-gray-300 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-50 transition font-semibold">
+                Create an account
+              </button>
+            </SignUpButton>
           </div>
         </div>
-        <div>
-          <h1 className="text-4xl font-bold gradient-text mb-2">CC Chat</h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Sign in to start chatting with AI models
-          </p>
-        </div>
-      </div>
-      <div className="flex flex-col gap-4 w-full">
-        <SignInButton mode="modal">
-          <button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 font-semibold">
-            Sign in
-          </button>
-        </SignInButton>
-        <SignUpButton mode="modal">
-          <button className="glass-effect text-gray-900 dark:text-white px-6 py-3 rounded-xl hover:bg-white/20 transition-all duration-200 font-semibold">
-            Sign up
-          </button>
-        </SignUpButton>
       </div>
     </div>
   );
