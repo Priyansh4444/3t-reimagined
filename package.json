@@ -4,12 +4,31 @@
   "private": true,
   "scripts": {
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
-    "dev:frontend": "next dev",
+    "dev:frontend": "next dev --turbo",
     "dev:backend": "convex dev",
     "predev": "convex dev --until-success && convex dashboard",
-    "build": "next build",
+    "build": "npm run build:convex && npm run build:next",
+    "build:convex": "convex deploy",
+    "build:next": "next build",
+    "build:analyze": "ANALYZE=true next build",
     "start": "next start",
-    "lint": "next lint"
+    "start:prod": "NODE_ENV=production next start",
+    "deploy": "npm run build && npm run start:prod",
+    "deploy:vercel": "npm run build:convex && vercel --prod",
+    "deploy:netlify": "npm run build:convex && netlify deploy --prod",
+    "lint": "next lint --fix",
+    "lint:check": "next lint",
+    "type-check": "tsc --noEmit",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "clean": "rm -rf .next out dist",
+    "precommit": "npm-run-all --parallel lint:check type-check format:check",
+    "prebuild": "npm run clean",
+    "postbuild": "npm run analyze",
+    "analyze": "npx @next/bundle-analyzer",
+    "test": "echo \"Tests not implemented yet\" && exit 0",
+    "validate": "npm-run-all --parallel lint:check type-check format:check",
+    "setup": "npm install && npm run validate"
   },
   "dependencies": {
     "@ai-sdk/google": "^1.2.19",
@@ -34,6 +53,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@next/bundle-analyzer": "^15.2.3",
     "@tailwindcss/postcss": "^4.1.10",
     "@types/node": "^20.19.1",
     "@types/react": "^19.1.8",
@@ -44,5 +64,21 @@
     "prettier": "^3.5.3",
     "tailwindcss": "^4.1.10",
     "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.3%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   }
 }

@@ -190,9 +190,8 @@ export const generateTitleInternal = internalAction({
 
     try {
       console.log(`🔄 [TITLE GEN] Calling AI with model: ${model}`);
-      const modelProvider = createModelProvider(model);
-
-      const {text: generatedTitle} = await generateText({
+      const modelProvider = createModelProvider("gemma-3-27b-it");
+      const { text: generatedTitle } = await generateText({
         model: modelProvider,
         system: systemPrompt,
         prompt,

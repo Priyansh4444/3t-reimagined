@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, memo, useMemo, useCallback } from "react";
 import { Button } from "./ui/button";
-import { Send, ChevronDown, Star, Zap } from "lucide-react";
+import { Send, ChevronDown, Star, Zap, Loader2 } from "lucide-react";
 import { AVAILABLE_MODELS } from "@/convex/chat";
 
 interface ChatInputProps {
@@ -13,7 +13,55 @@ interface ChatInputProps {
   placeholder?: string;
 }
 
-export function ChatInput({
+// Memoized model option component
+const ModelOption = memo(function ModelOption({
+  model,
+  isSelected,
+  onClick,
+}: {
+  model: (typeof AVAILABLE_MODELS)[0];
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left px-3 py-3 rounded-lg text-sm transition-all duration-200 ${
+        isSelected
+          ? model.free
+            ? "bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800"
+            : "bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800"
+          : "hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+      }`}
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="font-medium">{model.name}</div>
+          <div className="text-xs opacity-70">{model.provider}</div>
+        </div>
+        <div className="flex items-center gap-1">
+          {model.free ? (
+            <>
+              <Star className="w-3 h-3 text-green-500" />
+              <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                FREE
+              </span>
+            </>
+          ) : (
+            <>
+              <Zap className="w-3 h-3 text-purple-500" />
+              <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                PREMIUM
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+});
+
+export const ChatInput = memo(function ChatInput({
   onSendMessage,
   disabled = false,
   selectedModel,
@@ -25,21 +73,54 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modelSelectRef = useRef<HTMLDivElement>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (message.trim() && !disabled) {
-      console.log("📤 Submitting message from ChatInput");
-      onSendMessage(message.trim());
-      setMessage("");
-    }
-  };
+  // Memoized model info
+  const selectedModelInfo = useMemo(
+    () => AVAILABLE_MODELS.find((m) => m.id === selectedModel),
+    [selectedModel],
+  );
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+  // Memoized grouped models
+  const { freeModels, premiumModels } = useMemo(() => {
+    const free = AVAILABLE_MODELS.filter((m) => m.free);
+    const premium = AVAILABLE_MODELS.filter((m) => !m.free);
+    return { freeModels: free, premiumModels: premium };
+  }, []);
+
+  // Memoized callbacks
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
       e.preventDefault();
-      handleSubmit(e);
-    }
-  };
+      if (message.trim() && !disabled) {
+        console.log("📤 Submitting message from ChatInput");
+        onSendMessage(message.trim());
+        setMessage("");
+      }
+    },
+    [message, disabled, onSendMessage],
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSubmit(e);
+      }
+    },
+    [handleSubmit],
+  );
+
+  const handleModelSelect = useCallback(
+    (modelId: string) => {
+      console.log(`🤖 Selecting model: ${modelId}`);
+      onModelChange(modelId);
+      setShowModelSelect(false);
+    },
+    [onModelChange],
+  );
+
+  const toggleModelSelect = useCallback(() => {
+    setShowModelSelect((prev) => !prev);
+  }, []);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -68,123 +149,90 @@ export function ChatInput({
     }
   }, [showModelSelect]);
 
-  const selectedModelInfo = AVAILABLE_MODELS.find(
-    (m) => m.id === selectedModel,
-  );
-
-  // Group models by category
-  const freeModels = AVAILABLE_MODELS.filter((m) => m.free);
-  const premiumModels = AVAILABLE_MODELS.filter((m) => !m.free);
-
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Model Selector */}
       <div className="relative" ref={modelSelectRef}>
         <button
           type="button"
-          onClick={() => setShowModelSelect(!showModelSelect)}
-          className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors w-full"
+          onClick={toggleModelSelect}
+          disabled={disabled}
+          className={`flex items-center gap-3 px-4 py-3 text-sm bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm hover:bg-white dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl transition-all duration-200 w-full shadow-sm ${
+            disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+          }`}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 flex-1">
             {selectedModelInfo?.free ? (
-              <Star className="w-4 h-4 text-green-500" />
+              <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                <Star className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
             ) : (
-              <Zap className="w-4 h-4 text-purple-500" />
+              <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                <Zap className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              </div>
             )}
-            <span className="font-medium text-gray-700">
-              {selectedModelInfo?.name || "Unknown Model"}
-            </span>
+            <div className="flex-1 text-left">
+              <div className="font-medium text-slate-900 dark:text-slate-100">
+                {selectedModelInfo?.name || "Unknown Model"}
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                {selectedModelInfo?.provider}
+                {selectedModelInfo?.free && " • Free"}
+              </div>
+            </div>
             {selectedModelInfo?.free && (
-              <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded-full font-medium">
+              <span className="px-2 py-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full font-medium">
                 FREE
               </span>
             )}
           </div>
           <ChevronDown
-            className={`w-4 h-4 text-gray-500 transition-transform ml-auto ${showModelSelect ? "rotate-180" : ""}`}
+            className={`w-5 h-5 text-slate-500 dark:text-slate-400 transition-transform duration-200 ${
+              showModelSelect ? "rotate-180" : ""
+            }`}
           />
         </button>
 
         {showModelSelect && (
-          <div className="absolute bottom-full left-0 mb-2 w-full bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-80 overflow-y-auto">
-            <div className="p-2">
+          <div className="absolute bottom-full left-0 mb-2 w-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-20 max-h-80 overflow-y-auto animate-fade-in-up">
+            <div className="p-3">
               {/* Free Models Section */}
               {freeModels.length > 0 && (
                 <div className="mb-4">
-                  <div className="flex items-center gap-2 text-xs font-medium text-green-600 mb-2 px-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-green-600 dark:text-green-400 mb-3 px-2">
                     <Star className="w-3 h-3" />
                     Free Models
                   </div>
-                  {freeModels.map((model) => (
-                    <button
-                      key={model.id}
-                      onClick={() => {
-                        console.log(`🤖 Selecting model: ${model.name}`);
-                        onModelChange(model.id);
-                        setShowModelSelect(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                        selectedModel === model.id
-                          ? "bg-green-50 text-green-700 border border-green-200"
-                          : "hover:bg-gray-50 text-gray-700"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium">{model.name}</div>
-                          <div className="text-xs opacity-60">
-                            {model.provider}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Star className="w-3 h-3 text-green-500" />
-                          <span className="text-xs text-green-600 font-medium">
-                            FREE
-                          </span>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                  <div className="space-y-1">
+                    {freeModels.map((model) => (
+                      <ModelOption
+                        key={model.id}
+                        model={model}
+                        isSelected={selectedModel === model.id}
+                        onClick={() => handleModelSelect(model.id)}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
 
               {/* Premium Models Section */}
               {premiumModels.length > 0 && (
                 <div>
-                  <div className="flex items-center gap-2 text-xs font-medium text-purple-600 mb-2 px-2">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-purple-600 dark:text-purple-400 mb-3 px-2">
                     <Zap className="w-3 h-3" />
                     Premium Models
                   </div>
-                  {premiumModels.map((model) => (
-                    <button
-                      key={model.id}
-                      onClick={() => {
-                        console.log(`🤖 Selecting model: ${model.name}`);
-                        onModelChange(model.id);
-                        setShowModelSelect(false);
-                      }}
-                      className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                        selectedModel === model.id
-                          ? "bg-purple-50 text-purple-700 border border-purple-200"
-                          : "hover:bg-gray-50 text-gray-700"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium">{model.name}</div>
-                          <div className="text-xs opacity-60">
-                            {model.provider}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Zap className="w-3 h-3 text-purple-500" />
-                          <span className="text-xs text-purple-600 font-medium">
-                            PREMIUM
-                          </span>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                  <div className="space-y-1">
+                    {premiumModels.map((model) => (
+                      <ModelOption
+                        key={model.id}
+                        model={model}
+                        isSelected={selectedModel === model.id}
+                        onClick={() => handleModelSelect(model.id)}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -201,48 +249,39 @@ export function ChatInput({
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            className="w-full resize-none min-h-[50px] max-h-[120px] px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-500 text-gray-900 bg-white shadow-sm"
             disabled={disabled}
+            className={`w-full px-4 py-3 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all duration-200 text-slate-900 dark:text-slate-100 placeholder-slate-500 dark:placeholder-slate-400 min-h-[44px] max-h-[120px] ${
+              disabled ? "opacity-50 cursor-not-allowed" : ""
+            }`}
             rows={1}
           />
         </div>
-
         <Button
           type="submit"
           disabled={!message.trim() || disabled}
-          className="px-5 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors min-w-[44px] h-[50px] flex items-center justify-center"
+          className={`px-4 py-3 h-[44px] bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-slate-400 disabled:to-slate-500 text-white border-0 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl disabled:shadow-none transform hover:scale-[1.02] active:scale-[0.98] disabled:transform-none ${
+            disabled ? "cursor-not-allowed" : ""
+          }`}
         >
           {disabled ? (
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <Loader2 className="w-5 h-5 animate-spin" />
           ) : (
-            <Send className="w-4 h-4" />
+            <Send className="w-5 h-5" />
           )}
         </Button>
       </form>
 
-      {/* Model Info */}
-      {selectedModelInfo && (
-        <div className="flex items-center gap-2 text-xs text-gray-500">
-          <div
-            className={`flex items-center gap-1 px-2 py-1 rounded-full ${
-              selectedModelInfo.free
-                ? "bg-green-50 text-green-700"
-                : "bg-purple-50 text-purple-700"
-            }`}
-          >
-            {selectedModelInfo.free ? (
-              <Star className="w-3 h-3" />
-            ) : (
-              <Zap className="w-3 h-3" />
-            )}
-            <span className="font-medium">{selectedModelInfo.name}</span>
-            {selectedModelInfo.free && (
-              <span className="ml-1 text-xs font-bold">FREE</span>
-            )}
-          </div>
-          <span>by {selectedModelInfo.provider}</span>
-        </div>
-      )}
+      {/* Helper text */}
+      <div className="text-xs text-slate-500 dark:text-slate-400 text-center">
+        {disabled ? (
+          <span className="flex items-center justify-center gap-1">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Please wait for the response to complete
+          </span>
+        ) : (
+          "Press Shift + Enter for new line, Enter to send"
+        )}
+      </div>
     </div>
   );
-}
+});
