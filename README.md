@@ -1,55 +1,121 @@
-# Welcome to your Convex + Next.js + Clerk app
+# CC Chat - AI Chat Application
 
-This is a [Convex](https://convex.dev/) project created with [`npm create convex`](https://www.npmjs.com/package/create-convex).
+A modern chat application built with Next.js, Convex, and Clerk authentication that supports multiple AI models.
 
-After the initial setup (<2 minutes) you'll have a working full-stack app using:
+## Features
 
-- Convex as your backend (database, server logic)
-- [React](https://react.dev/) as your frontend (web page interactivity)
-- [Next.js](https://nextjs.org/) for optimized web hosting and page routing
-- [Tailwind](https://tailwindcss.com/) for building great looking accessible UI
-- [Clerk](https://clerk.com/) for authentication
+- 🤖 **Multiple AI Models**: Support for Gemini 2.5 Flash, Claude 3.5 Sonnet, GPT-4o, and more
+- 💬 **Real-time Chat**: Stream responses from AI models in real-time
+- 📱 **Responsive Design**: Clean, modern UI that works on desktop and mobile
+- 🔄 **Message Retry**: Retry messages with different models
+- 📚 **Chat History**: Persistent chat threads with automatic title generation
+- 🎨 **Markdown Support**: Rich text rendering with code highlighting and LaTeX math
+- 🌙 **Dark Mode**: Built-in dark mode support
+- 🔐 **Authentication**: Secure user authentication with Clerk
 
-## Get started
+## Tech Stack
 
-If you just cloned this codebase and didn't use `npm create convex`, run:
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Backend**: Convex (database, real-time sync, AI streaming)
+- **Authentication**: Clerk
+- **Styling**: Tailwind CSS v4
+- **AI Models**: OpenRouter (Gemini, Claude, GPT-4o, etc.)
+- **Package Manager**: Bun
+
+## Getting Started
+
+### Prerequisites
+
+- [Bun](https://bun.sh/) installed
+- [Convex](https://convex.dev/) account
+- [Clerk](https://clerk.com/) account
+- [OpenRouter](https://openrouter.ai/) API key
+
+### Setup
+
+1. **Clone the repository**
+
+   ```bash
+   git clone <repository-url>
+   cd 3t-reimagined
+   ```
+
+2. **Install dependencies**
+
+   ```bash
+   bun install
+   ```
+
+3. **Set up environment variables**
+   Create a `.env.local` file in the root directory:
+
+   ```env
+   NEXT_PUBLIC_CONVEX_URL=your_convex_url
+   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+   CLERK_SECRET_KEY=your_clerk_secret_key
+   OPENROUTER_API_KEY=your_openrouter_api_key
+   ```
+
+4. **Deploy Convex functions**
+
+   ```bash
+   bun run convex dev
+   ```
+
+5. **Start the development server**
+   ```bash
+   bun run dev
+   ```
+
+The app will be available at `http://localhost:3000`
+
+## Usage
+
+1. **Sign in/up** using Clerk authentication
+2. **Start a new chat** by typing a message
+3. **Select different models** using the settings button in the input area
+4. **View chat history** by double-clicking the sidebar icon
+5. **Retry messages** by hovering over assistant messages and clicking the retry button
+6. **Delete chats** by clicking the trash icon in the sidebar
+
+## Available Models
+
+- **Google Gemini 2.5 Flash** - Fast and efficient
+- **Anthropic Claude 3.5 Sonnet** - Balanced performance
+- **OpenAI GPT-4o** - High-quality responses
+- **Qwen 2.5 72B** - Large context window
+- **DeepSeek Coder 33B** - Code-focused
+
+## Project Structure
 
 ```
-npm install
-npm run dev
+├── app/                    # Next.js app directory
+│   ├── globals.css        # Global styles
+│   ├── layout.tsx         # Root layout
+│   └── page.tsx           # Main page
+├── components/            # React components
+│   ├── ui/               # Reusable UI components
+│   ├── ChatInterface.tsx # Main chat interface
+│   ├── ChatSidebar.tsx   # Chat history sidebar
+│   ├── ChatMessage.tsx   # Individual message component
+│   └── ChatInput.tsx     # Message input with model selection
+├── convex/               # Convex backend
+│   ├── chat.ts          # Chat functions and AI integration
+│   └── schema.ts        # Database schema
+└── lib/                  # Utility functions
 ```
 
-If you're reading this README on GitHub and want to use this template, run:
+## Contributing
 
-```
-npm create convex@latest -- -t nextjs-clerk
-```
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-Then:
+## License
 
-1. Open your app. There should be a "Claim your application" button from Clerk in the bottom right of your app.
-2. Follow the steps to claim your application and link it to this app.
-3. Follow step 3 in the [Convex Clerk onboarding guide](https://docs.convex.dev/auth/clerk#get-started) to create a Convex JWT template.
-4. Uncomment the Clerk provider in `convex/auth.config.ts`
-5. Paste the Issuer URL as `CLERK_JWT_ISSUER_DOMAIN` to your dev deployment environment variable settings on the Convex dashboard (see [docs](https://docs.convex.dev/auth/clerk#configuring-dev-and-prod-instances))
-
-If you want to sync Clerk user data via webhooks, check out this [example repo](https://github.com/thomasballinger/convex-clerk-users-table/).
-
-## Learn more
-
-To learn more about developing your project with Convex, check out:
-
-- The [Tour of Convex](https://docs.convex.dev/get-started) for a thorough introduction to Convex principles.
-- The rest of [Convex docs](https://docs.convex.dev/) to learn about all Convex features.
-- [Stack](https://stack.convex.dev/) for in-depth articles on advanced topics.
-
-## Join the community
-
-Join thousands of developers building full-stack apps with Convex:
-
-- Join the [Convex Discord community](https://convex.dev/community) to get help in real-time.
-- Follow [Convex on GitHub](https://github.com/get-convex/), star and contribute to the open-source implementation of Convex.
-
+MIT License - see LICENSE file for details
 
 @T3-Chat Leaked Secret Sauce:
 https://www.youtube.com/watch?v=tUKMPUlOCHY

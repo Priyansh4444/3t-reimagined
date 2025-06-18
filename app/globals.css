@@ -1,26 +1,298 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 94.1%;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-attachment: fixed;
+    color: hsl(var(--foreground));
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(156, 163, 175, 0.5);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(156, 163, 175, 0.8);
+  }
+}
+
+@layer components {
+  .glass-effect {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .glass-effect-dark {
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-border {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 1px;
+    border-radius: 0.75rem;
+  }
+
+  .gradient-border>* {
+    background: white;
+    border-radius: 0.75rem;
+  }
+
+  .message-bubble {
+    position: relative;
+    border-radius: 1.25rem;
+    padding: 1rem 1.25rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+  }
+
+  .message-bubble:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  }
+
+  .user-message {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+
+  .assistant-message {
+    background: white;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+  }
+
+  .dark .assistant-message {
+    background: #1f2937;
+    color: #f9fafb;
+    border: 1px solid #374151;
+  }
+
+  .prose {
+    font-size: 0.875rem;
+    line-height: 1.625;
+  }
+
+  .prose p {
+    margin-bottom: 1rem;
+  }
+
+  .prose p:last-child {
+    margin-bottom: 0;
+  }
+
+  .prose h1,
+  .prose h2,
+  .prose h3,
+  .prose h4,
+  .prose h5,
+  .prose h6 {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .prose h1 {
+    font-size: 1.25rem;
+  }
+
+  .prose h2 {
+    font-size: 1.125rem;
+  }
+
+  .prose h3 {
+    font-size: 1rem;
+  }
+
+  .prose ul,
+  .prose ol {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+  }
+
+  .prose li {
+    margin-bottom: 0.25rem;
+  }
+
+  .prose blockquote {
+    border-left: 4px solid #d1d5db;
+    padding-left: 1rem;
+    font-style: italic;
+    margin: 1rem 0;
+  }
+
+  .dark .prose blockquote {
+    border-left-color: #4b5563;
+  }
+
+  .prose code {
+    background-color: #f3f4f6;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+
+  .dark .prose code {
+    background-color: #1f2937;
+  }
+
+  .prose pre {
+    background-color: #f3f4f6;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+
+  .dark .prose pre {
+    background-color: #1f2937;
+  }
+
+  .prose pre code {
+    background-color: transparent;
+    padding: 0;
+  }
+
+  .prose a {
+    color: #2563eb;
+    text-decoration: underline;
+  }
+
+  .dark .prose a {
+    color: #60a5fa;
+  }
+
+  .prose table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #d1d5db;
+    margin: 1rem 0;
+  }
+
+  .dark .prose table {
+    border-color: #4b5563;
+  }
+
+  .prose th,
+  .prose td {
+    border: 1px solid #d1d5db;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+  }
+
+  .dark .prose th,
+  .dark .prose td {
+    border-color: #4b5563;
+  }
+
+  .prose th {
+    background-color: #f3f4f6;
+    font-weight: 600;
+  }
+
+  .dark .prose th {
+    background-color: #1f2937;
+  }
+
+  .floating-animation {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  .pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes pulse-glow {
+    from {
+      box-shadow: 0 0 20px rgba(102, 126, 234, 0.4);
+    }
+
+    to {
+      box-shadow: 0 0 30px rgba(102, 126, 234, 0.8);
+    }
+  }
 }

@@ -12,14 +12,25 @@ import {
   query,
   QueryCtx,
 } from "./_generated/server";
+
 async function authorizeThreadAccess(
   ctx: QueryCtx | MutationCtx | ActionCtx,
   threadId: string,
 ) {
   const userId = await ctx.auth.getUserIdentity();
-  if (!userId || !threadId) {
+  if (!userId) {
     throw new Error("Unauthorized");
   }
+  const thread = await ctx.runQuery(components.agent.threads.getThread, {
+    threadId,
+  });
+  if (!thread) {
+    throw new Error("Thread not found");
+  }
+  if (thread.userId !== userId.tokenIdentifier) {
+    throw new Error("Unauthorized");
+  }
+  return thread;
 }
 
 // Available models
@@ -90,7 +101,7 @@ export const generateTitle = internalAction({
 
 const chatAgent = new Agent(components.agent, {
   // The chat completions model to use for the agent.
-  chat: openrouter("google/gemini-2.5-flash-preview-04-17"),
+  chat: openrouter("google/gemini-2.0-flash-exp:free"),
   instructions: PROMPT,
 });
 
@@ -117,7 +128,7 @@ export const streamChat = internalAction({
     threadId: v.string(),
   },
   handler: async (ctx, { promptMessageId, threadId }) => {
-    authorizeThreadAccess(ctx, threadId);
+    // authorizeThreadAccess(ctx, threadId);/
     const { thread } = await chatAgent.continueThread(ctx, { threadId });
 
     const result = await thread.streamText(

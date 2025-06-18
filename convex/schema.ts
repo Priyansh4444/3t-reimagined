@@ -5,20 +5,23 @@ export default defineSchema({
   threads: defineTable({
     userId: v.string(),
     title: v.string(),
-    model: v.string(),
-    interface: v.string(),
-  })
-    .index("by_user", ["userId"])
-    .index("by_user_and_creation_time", ["userId", "_creationTime"]),
+    model: v.optional(v.string()),
+    interface: v.optional(v.string()),
+  }).index("by_user", ["userId"]),
 
   messages: defineTable({
-    threadId: v.id("threads"),
+    chatId: v.string(),
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
-    model: v.string(),
+    model: v.optional(v.string()),
+    isAI: v.optional(v.boolean()),
+    isComplete: v.optional(v.boolean()),
+    timestamp: v.optional(v.number()),
+    userId: v.optional(v.string()),
+    threadId: v.optional(v.id("threads")),
   })
-    .index("by_thread", ["threadId"])
-    .index("by_thread_and_creation_time", ["threadId", "_creationTime"]),
+    .index("by_chat", ["chatId"])
+    .index("by_thread", ["threadId"]),
 
   userPreferences: defineTable({
     userId: v.string(),
