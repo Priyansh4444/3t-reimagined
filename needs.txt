@@ -1,0 +1,9 @@
+Making sure that on creating a new thread, the first message creates a new thread, which updates the sidebar and therefore also creates a new title with the convex functions while the text is streaming in.
+This title should be editable and the user should be able to change it.
+
+Markdown Katex Message formating along with codeblocks being allowed.
+
+Being able to retry messages with different models and making sure that when a thread is deleted you are redirected to the new thread screen without any reloads on the page, like the sidebar and stuff should not be completely reloaded, more of an optimistic updates.
+Being able to change the model with ease like with a dropdown menu easily, being able to copy outputs of all messages.
+Only fetching thread messages when on that thread.
+Responsive navigation and layout.
