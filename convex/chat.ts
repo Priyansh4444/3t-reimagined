@@ -167,46 +167,85 @@ function createModelProvider(modelId: string) {
   }
 }
 
-export const generateTitle = internalAction({
-  args: { message: v.string(), threadId: v.string() },
-  handler: async (ctx, { message, threadId }) => {
-    console.log(`🎯 Starting title generation for thread: ${threadId}`);
-    console.log(`📝 Message preview: ${message.slice(0, 50)}...`);
+// Improved title generation that runs automatically after thread creation
+export const generateTitleInternal = internalAction({
+  args: {
+    threadId: v.string(),
+    firstMessage: v.string(),
+    model: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, { threadId, firstMessage, model }) => {
+    console.log(
+      `🤖 [TITLE GEN] Starting title generation for thread: ${threadId}`,
+    );
+    console.log(
+      `🤖 [TITLE GEN] First message: ${firstMessage.slice(0, 100)}...`,
+    );
+    console.log(`🤖 [TITLE GEN] Using model: ${model}`);
 
     const systemPrompt =
-      "Generate a concise one-line title (max 6 words) for this conversation. Only return the title, no extra text.";
-    const prompt = `Create a short title for: ${message}`;
+      "You are a helpful assistant that creates short, descriptive titles for conversations. Generate a concise title (3-6 words) based on the user's message. Return only the title without quotes, explanations, or extra text.";
+    const prompt = `User message: "${firstMessage}"\n\nCreate a short descriptive title for this conversation:`;
 
     try {
-      console.log("🔄 Calling AI for title generation...");
-      const result = await generateText({
-        model: google("gemini-2.5-flash"),
+      console.log(`🔄 [TITLE GEN] Calling AI with model: ${model}`);
+      const modelProvider = createModelProvider(model);
+
+      const {text: generatedTitle} = await generateText({
+        model: modelProvider,
         system: systemPrompt,
         prompt,
-        maxTokens: 50,
+        temperature: 0.7,
       });
 
-      const generatedTitle = result.text.trim();
-      console.log(`✨ Generated title: "${generatedTitle}"`);
+      console.log(`✨ [TITLE GEN] Generated title: "${generatedTitle}"`);
 
-      console.log("💾 Updating thread with new title...");
+      // Check if we got a valid title, fallback if empty or too generic
+      const finalTitle =
+        generatedTitle &&
+        generatedTitle.length > 0 &&
+        generatedTitle !== "New Chat" &&
+        generatedTitle !== "Chat" &&
+        generatedTitle !== "Conversation"
+          ? generatedTitle
+          : firstMessage.length > 30
+            ? firstMessage.slice(0, 27) + "..."
+            : firstMessage;
+
+      console.log(`🏷️ [TITLE GEN] Final title: "${finalTitle}"`);
+
+      // Update the thread title directly using components
       await ctx.runMutation(components.agent.threads.updateThread, {
         threadId,
         patch: {
-          title: generatedTitle,
+          title: finalTitle,
         },
       });
-      console.log("✅ Title update completed successfully");
+
+      console.log("✅ [TITLE GEN] Title updated successfully in database");
     } catch (error) {
-      console.error("❌ Title generation failed:", error);
-      // Fallback to a generic title
-      await ctx.runMutation(components.agent.threads.updateThread, {
-        threadId,
-        patch: {
-          title: "New Chat",
-        },
-      });
+      console.error("❌ [TITLE GEN] Title generation failed:", error);
+      console.error(
+        "❌ [TITLE GEN] Error details:",
+        JSON.stringify(error, null, 2),
+      );
+
+      // Update with fallback title
+      try {
+        await ctx.runMutation(components.agent.threads.updateThread, {
+          threadId,
+          patch: {
+            title: "New Chat",
+          },
+        });
+        console.log("✅ [TITLE GEN] Fallback title set");
+      } catch (fallbackError) {
+        console.error("❌ [TITLE GEN] Even fallback failed:", fallbackError);
+      }
     }
+
+    return null;
   },
 });
 
@@ -218,6 +257,7 @@ const chatAgent = new Agent(components.agent, {
 
 export const streamChatAsynchronously = mutation({
   args: { prompt: v.string(), threadId: v.string() },
+  returns: v.object({ messageId: v.string() }),
   handler: async (ctx, { prompt, threadId }) => {
     console.log(`🚀 Starting async chat stream for thread: ${threadId}`);
     await authorizeThreadAccess(ctx, threadId);
@@ -248,6 +288,7 @@ export const streamChat = internalAction({
     promptMessageId: v.string(),
     threadId: v.string(),
   },
+  returns: v.null(),
   handler: async (ctx, { promptMessageId, threadId }) => {
     console.log(`🔄 Starting streaming for message: ${promptMessageId}`);
     // Skip authorization for internal streaming - it's already authorized in the mutation
@@ -266,6 +307,7 @@ export const streamChat = internalAction({
     console.log("📡 Consuming stream...");
     await result.consumeStream();
     console.log("✅ Stream completed successfully");
+    return null;
   },
 });
 
@@ -275,6 +317,12 @@ export const listThreadMessages = query({
     paginationOpts: paginationOptsValidator,
     streamArgs: vStreamArgs,
   },
+  returns: v.object({
+    page: v.array(v.any()),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+    streams: v.optional(v.any()),
+  }),
   handler: async (ctx, { threadId, paginationOpts, streamArgs }) => {
     console.log(`📋 Listing messages for thread: ${threadId}`);
     await authorizeThreadAccess(ctx, threadId);
@@ -299,8 +347,9 @@ export const listThreadMessages = query({
 });
 
 export const createThreadWithFirstMessage = mutation({
-  args: { prompt: v.string() },
-  handler: async (ctx, { prompt }) => {
+  args: { prompt: v.string(), model: v.optional(v.string()) },
+  returns: v.object({ threadId: v.string(), messageId: v.string() }),
+  handler: async (ctx, { prompt, model = "gemini-2.5-flash" }) => {
     console.log("🆕 Creating new thread with first message");
     const user = await ctx.auth.getUserIdentity();
     if (!user) {
@@ -312,7 +361,7 @@ export const createThreadWithFirstMessage = mutation({
     console.log("🧵 Creating thread...");
     const { threadId } = await chatAgent.createThread(ctx, {
       userId: user.tokenIdentifier,
-      title: "Generating title...",
+      title: "New Chat", // Will be updated by AI
     });
     console.log(`✅ Thread created: ${threadId}`);
 
@@ -324,18 +373,48 @@ export const createThreadWithFirstMessage = mutation({
     });
     console.log(`✅ Message saved: ${messageId}`);
 
-    // Schedule both title generation and streaming simultaneously for better UX
-    console.log("🎯 Scheduling title generation...");
-    void ctx.scheduler.runAfter(0, internal.chat.generateTitle, {
-      message: prompt,
-      threadId,
-    });
-
     console.log("🚀 Scheduling message streaming...");
     void ctx.scheduler.runAfter(0, internal.chat.streamChat, {
       threadId,
       promptMessageId: messageId,
     });
+
+    console.log("🏷️ Scheduling title generation...");
+    console.log(
+      `🏷️ Title generation args: threadId=${threadId}, firstMessage="${prompt.slice(0, 50)}...", model=${model}`,
+    );
+
+    try {
+      await ctx.scheduler.runAfter(0, internal.chat.generateTitleInternal, {
+        threadId,
+        firstMessage: prompt,
+        model,
+      });
+      console.log("✅ Title generation scheduled successfully");
+      console.log(
+        "New title:",
+        await ctx.runQuery(components.agent.threads.getThread, {
+          threadId,
+        }),
+      );
+    } catch (scheduleError) {
+      console.error("❌ Failed to schedule title generation:", scheduleError);
+
+      // If scheduling fails, set fallback title immediately
+      const fallbackTitle =
+        prompt.length > 30 ? prompt.slice(0, 27) + "..." : prompt;
+      try {
+        await ctx.runMutation(components.agent.threads.updateThread, {
+          threadId,
+          patch: {
+            title: fallbackTitle,
+          },
+        });
+        console.log(`✅ Emergency fallback title set: "${fallbackTitle}"`);
+      } catch (fallbackError) {
+        console.error("❌ Emergency fallback failed:", fallbackError);
+      }
+    }
 
     console.log("✅ Thread creation completed");
     return { threadId, messageId };
@@ -344,6 +423,11 @@ export const createThreadWithFirstMessage = mutation({
 
 export const listThreads = query({
   args: {},
+  returns: v.object({
+    page: v.array(v.any()),
+    isDone: v.boolean(),
+    continueCursor: v.union(v.string(), v.null()),
+  }),
   handler: async (ctx) => {
     console.log("📋 Listing user threads");
     const user = await ctx.auth.getUserIdentity();
@@ -368,6 +452,7 @@ export const listThreads = query({
 
 export const deleteThread = mutation({
   args: { threadId: v.string() },
+  returns: v.null(),
   handler: async (ctx, { threadId }) => {
     console.log(`🗑️ Deleting thread: ${threadId}`);
     await authorizeThreadAccess(ctx, threadId);
@@ -377,11 +462,13 @@ export const deleteThread = mutation({
       threadId,
     });
     console.log("✅ Thread deleted successfully");
+    return null;
   },
 });
 
 export const updateThreadTitle = mutation({
   args: { threadId: v.string(), title: v.string() },
+  returns: v.null(),
   handler: async (ctx, { threadId, title }) => {
     console.log(`✏️ Updating thread title: ${threadId} -> "${title}"`);
     await authorizeThreadAccess(ctx, threadId);
@@ -393,6 +480,7 @@ export const updateThreadTitle = mutation({
       },
     });
     console.log("✅ Title updated successfully");
+    return null;
   },
 });
 
@@ -402,6 +490,7 @@ export const retryMessage = mutation({
     prompt: v.string(),
     model: v.optional(v.string()),
   },
+  returns: v.object({ messageId: v.string() }),
   handler: async (ctx, { threadId, prompt, model }) => {
     console.log(`🔄 Retrying message with model: ${model || "default"}`);
     await authorizeThreadAccess(ctx, threadId);
@@ -444,6 +533,7 @@ export const streamChatWithModel = internalAction({
     threadId: v.string(),
     model: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (
     ctx,
     { promptMessageId, threadId, model = "gemini-2.5-flash" },
@@ -473,11 +563,13 @@ export const streamChatWithModel = internalAction({
     console.log("📡 Consuming model stream...");
     await result.consumeStream();
     console.log("✅ Model stream completed");
+    return null;
   },
 });
 
 export const getThreadInfo = query({
   args: { threadId: v.string() },
+  returns: v.union(v.any(), v.null()),
   handler: async (ctx, { threadId }) => {
     console.log(`ℹ️ Getting thread info: ${threadId}`);
     await authorizeThreadAccess(ctx, threadId);
@@ -486,5 +578,32 @@ export const getThreadInfo = query({
     });
     console.log("✅ Thread info retrieved");
     return info;
+  },
+});
+
+// Debug mutation to manually test title generation
+export const debugGenerateTitle = mutation({
+  args: {
+    threadId: v.string(),
+    firstMessage: v.string(),
+    model: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (
+    ctx,
+    { threadId, firstMessage, model = "gemini-2.5-flash" },
+  ) => {
+    console.log(`🐛 Debug: Manual title generation for thread: ${threadId}`);
+    await authorizeThreadAccess(ctx, threadId);
+
+    console.log("🐛 Debug: Scheduling title generation immediately...");
+    await ctx.scheduler.runAfter(0, internal.chat.generateTitleInternal, {
+      threadId,
+      firstMessage,
+      model,
+    });
+
+    console.log("🐛 Debug: Title generation scheduled");
+    return null;
   },
 });

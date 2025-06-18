@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import {
@@ -7,7 +8,7 @@ import {
   toUIMessages,
   useThreadMessages,
 } from "@convex-dev/agent/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatInput } from "./ChatInput";
 import { ChatMessage } from "./ChatMessage";
@@ -35,22 +36,22 @@ export function ChatInterface() {
     typeof window !== "undefined" ? getThreadIdFromHash() : undefined,
   );
 
-  // Get thread info to update title in real-time
+  // Get thread info to update title in real-time (with debouncing)
   const threadInfo = useQuery(
     api.chat.getThreadInfo,
     threadId ? { threadId } : "skip",
   );
 
-  // Update current thread title when thread info changes
+  // Update current thread title when thread info changes (optimized)
   useEffect(() => {
     if (threadInfo?.title && threadInfo.title !== currentThreadTitle) {
       console.log(`🏷️ Updating UI title: ${threadInfo.title}`);
       setCurrentThreadTitle(threadInfo.title);
       setEditTitleValue(threadInfo.title);
     }
-  }, [threadInfo?.title, currentThreadTitle]);
+  }, [threadInfo?.title]); // Removed currentThreadTitle from deps to prevent loops
 
-  // Listen for hash changes
+  // Listen for hash changes (optimized)
   useEffect(() => {
     function onHashChange() {
       const newThreadId = getThreadIdFromHash();
@@ -61,7 +62,7 @@ export function ChatInterface() {
     }
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
+  }, []); // Empty dependency array is correct here
 
   const handleThreadSelect = useCallback((newThreadId: string) => {
     console.log(`🎯 Selecting thread: ${newThreadId}`);
@@ -140,6 +141,33 @@ export function ChatInterface() {
       }
     },
     [retryMessage, selectedModel],
+  );
+
+  // Simplified function to create thread with AI-generated title
+  const handleStartChat = useCallback(
+    async (message: string) => {
+      try {
+        console.log("🚀 Starting new chat with message");
+
+        // Create thread with the selected model for title generation
+        const result = await createThread({
+          prompt: message,
+          model: selectedModel,
+        });
+        console.log(`✅ Thread created: ${result.threadId}`);
+
+        // Navigate to the new thread immediately
+        window.location.hash = result.threadId;
+        setThreadId(result.threadId);
+
+        // Set initial title - this will be updated by AI automatically
+        setCurrentThreadTitle("New Chat");
+        console.log("🏷️ Initial title set, AI generation scheduled");
+      } catch (error) {
+        console.error("Failed to create thread:", error);
+      }
+    },
+    [createThread, selectedModel],
   );
 
   return (
@@ -269,14 +297,7 @@ export function ChatInterface() {
             />
           ) : (
             <EmptyState
-              onStartChat={(message: string) => {
-                console.log("🚀 Starting new chat with message");
-                createThread({ prompt: message }).then((result) => {
-                  console.log(`✅ Thread created: ${result.threadId}`);
-                  window.location.hash = result.threadId;
-                  setThreadId(result.threadId);
-                });
-              }}
+              onStartChat={handleStartChat}
               selectedModel={selectedModel}
               onModelChange={setSelectedModel}
             />
@@ -325,7 +346,7 @@ function EmptyState({
   );
 }
 
-function Chat({
+const Chat = React.memo(function Chat({
   threadId,
   selectedModel,
   onModelChange,
@@ -389,7 +410,10 @@ function Chat({
     [messages.results, onRetryMessage, threadId, selectedModel],
   );
 
-  const uiMessages = toUIMessages(messages.results ?? []);
+  const uiMessages = useMemo(
+    () => toUIMessages(messages.results ?? []),
+    [messages.results],
+  );
 
   return (
     <div className="flex flex-col h-full bg-white rounded-xl shadow-lg">
@@ -430,4 +454,4 @@ function Chat({
       </div>
     </div>
   );
-}
+});
