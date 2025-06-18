@@ -1,6 +1,6 @@
-import { openrouter } from "@openrouter/ai-sdk-provider";
+import { google } from "@ai-sdk/google";
 import { generateText } from "ai";
-import { Agent, vStreamArgs } from "@convex-dev/agent";
+import { Agent } from "@convex-dev/agent";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api";
@@ -33,25 +33,23 @@ async function authorizeThreadAccess(
   return thread;
 }
 
-// Available models
+// Updated Google models to use correct Gemini 2.5 model names
 export const AVAILABLE_MODELS = [
   {
-    id: "google/gemini-2.5-flash-preview-04-17",
+    id: "gemini-2.5-flash",
     name: "Gemini 2.5 Flash",
     provider: "Google",
   },
-  { id: "qwen/qwen2.5-72b-instruct", name: "Qwen 2.5 72B", provider: "Qwen" },
   {
-    id: "deepseek-ai/deepseek-coder-33b-instruct",
-    name: "DeepSeek Coder 33B",
-    provider: "DeepSeek",
+    id: "gemini-2.5-flash-lite-preview-06-17",
+    name: "Gemini 2.5 Flash-Lite",
+    provider: "Google",
   },
   {
-    id: "anthropic/claude-3.5-sonnet",
-    name: "Claude 3.5 Sonnet",
-    provider: "Anthropic",
+    id: "gemini-2.5-pro",
+    name: "Gemini 2.5 Pro",
+    provider: "Google",
   },
-  { id: "openai/gpt-4o", name: "GPT-4o", provider: "OpenAI" },
 ];
 
 // Available interfaces
@@ -66,10 +64,9 @@ export const AVAILABLE_INTERFACES = [
   { id: "analysis", name: "Analysis", description: "Data analysis interface" },
 ];
 
-const PROMPT = `You are CC Chat, an AI assistant powered by the Gemini 2.5 Flash model. Your role is to assist and engage in conversation while being helpful, respectful, and engaging.
-- If you are specifically asked about the model you are using, you may mention that you use the Gemini 2.5 Flash model. If you are not asked specifically about the model you are using, you do not need to mention it.
+const PROMPT = `You are CC Chat, an AI assistant powered by advanced language models. Your role is to assist and engage in conversation while being helpful, respectful, and engaging.
 - Always use LaTeX for mathematical expressions:
-    - Inline math must be wrapped in escaped parentheses: ( content )
+    - Inline math must be wrapped in escaped parentheses: \\( content \\)
     - Do not use single dollar signs for inline math
     - Display math must be wrapped in double dollar signs: $$ content $$
 - Do not use the backslash character to escape parenthesis. Use the actual parentheses instead.
@@ -81,33 +78,36 @@ export const generateTitle = internalAction({
   args: { message: v.string(), threadId: v.string() },
   handler: async (ctx, { message, threadId }) => {
     const systemPrompt =
-      "Your one and only role is to generate a summary for a thread based on the first message.";
-    const prompt = `Generate a summary based on the following message: ${message}`;
-    authorizeThreadAccess(ctx, threadId);
+      "Generate a concise one-line title (max 6 words) for this conversation. Only return the title, no extra text.";
+    const prompt = `Create a short title for: ${message}`;
+
     const result = await generateText({
-      model: openrouter("google/gemini-2.5-flash-preview-04-17"),
+      model: google("gemini-2.5-flash"),
       system: systemPrompt,
       prompt,
+      maxTokens: 50,
     });
 
     await ctx.runMutation(components.agent.threads.updateThread, {
       threadId,
       patch: {
-        title: result.text,
+        title: result.text.trim(),
       },
     });
   },
 });
 
 const chatAgent = new Agent(components.agent, {
-  // The chat completions model to use for the agent.
-  chat: openrouter("google/gemini-2.0-flash-exp:free"),
+  // Use Google AI SDK directly with Gemini 2.5 Flash for better performance and streaming
+  chat: google("gemini-2.5-flash"),
   instructions: PROMPT,
 });
 
 export const streamChatAsynchronously = mutation({
   args: { prompt: v.string(), threadId: v.string() },
   handler: async (ctx, { prompt, threadId }) => {
+    await authorizeThreadAccess(ctx, threadId);
+
     const { messageId } = await chatAgent.saveMessage(ctx, {
       threadId,
       prompt,
@@ -128,12 +128,17 @@ export const streamChat = internalAction({
     threadId: v.string(),
   },
   handler: async (ctx, { promptMessageId, threadId }) => {
-    // authorizeThreadAccess(ctx, threadId);/
+    // Skip authorization for internal streaming - it's already authorized in the mutation
     const { thread } = await chatAgent.continueThread(ctx, { threadId });
 
     const result = await thread.streamText(
       { promptMessageId },
-      { saveStreamDeltas: true },
+      {
+        saveStreamDeltas: {
+          chunking: "word",
+          throttleMs: 50,
+        },
+      },
     );
     await result.consumeStream();
   },
@@ -143,18 +148,16 @@ export const listThreadMessages = query({
   args: {
     threadId: v.string(),
     paginationOpts: paginationOptsValidator,
-    streamArgs: vStreamArgs,
-    //... other arguments you want
   },
-  handler: async (ctx, { threadId, paginationOpts, streamArgs }) => {
+  handler: async (ctx, { threadId, paginationOpts }) => {
     await authorizeThreadAccess(ctx, threadId);
-    const paginated = await chatAgent.listMessages(ctx, {
+
+    // Get messages and streams with proper ordering
+    return await chatAgent.listMessages(ctx, {
       threadId,
       paginationOpts,
+      excludeToolMessages: true,
     });
-    const streams = await chatAgent.syncStreams(ctx, { threadId, streamArgs });
-    // Here you could filter out / modify the documents & stream deltas.
-    return { ...paginated, streams };
   },
 });
 
@@ -174,6 +177,8 @@ export const createThreadWithFirstMessage = mutation({
       prompt,
       skipEmbeddings: true,
     });
+
+    // No authorization needed for title generation - it's the user's own thread
     void ctx.scheduler.runAfter(0, internal.chat.generateTitle, {
       message: prompt,
       threadId,
@@ -208,32 +213,5 @@ export const deleteThread = mutation({
     await ctx.runMutation(components.agent.threads.deleteAllForThreadIdAsync, {
       threadId,
     });
-  },
-});
-
-export const getThreadWithFirstMessage = query({
-  args: { threadId: v.string() },
-  handler: async (ctx, { threadId }) => {
-    await authorizeThreadAccess(ctx, threadId);
-    const thread = await ctx.runQuery(components.agent.threads.getThread, {
-      threadId,
-    });
-
-    if (!thread) return null;
-
-    // Get the first user message for display
-    const messages = await chatAgent.listMessages(ctx, {
-      threadId,
-      paginationOpts: { cursor: null, numItems: 1 },
-    });
-
-    const firstMessage = messages.page.find(
-      (msg) => msg.message?.role === "user",
-    );
-
-    return {
-      ...thread,
-      firstMessage: firstMessage?.text || null,
-    };
   },
 });
